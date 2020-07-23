@@ -55,7 +55,7 @@ resource "aws_security_group" "allow_ssh" {
 #our VM with a given ssh key , protected by our firewall rules
 resource "aws_instance" "pippo" {
   ami           = "ami-0a63f96e85105c6d3"
-  instance_type = "t3.micro"
+  instance_type = "t2.micro"
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
   key_name               = aws_key_pair.ssh-key.key_name
@@ -91,7 +91,7 @@ resource "aws_db_instance" "postgres" {
   storage_type           = "gp2"
   engine                 = "postgres"
   engine_version         = "11.5"
-  instance_class         = "db.t3.micro"
+  instance_class         = "db.t2.micro"
   name                   = "testdb"
   username               = "testuser"
   password               = "testpassword"
