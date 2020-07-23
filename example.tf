@@ -1,7 +1,7 @@
 #this is a comment?!
 provider "aws" {
   profile = "default"
-  region  = "eu-south-1"
+  region  = "us-east-2"
 }
 
 #this nis required to ssh into the machine from a remote client like putty
@@ -34,7 +34,7 @@ resource "aws_instance" "pippo" {
   instance_type = "t3.micro"
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
-  key_name = "${aws_key_pair.ssh-key.key_name}"
+  key_name = aws_key_pair.ssh-key.key_name
 }
 
 #add a managed postgres instance
