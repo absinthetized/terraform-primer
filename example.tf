@@ -37,3 +37,16 @@ resource "aws_instance" "pippo" {
   key_name = "${aws_key_pair.ssh-key.key_name}"
 }
 
+#add a managed postgres instance
+resource "aws_db_instance" "postgres" {
+  identifier           = "appdb"
+  allocated_storage    = 5
+  storage_type         = "gp2"
+  engine               = "postgres"
+  engine_version       = "11.5"
+  instance_class       = "db.t3.micro"
+  name                 = "testdb"
+  username             = "testuser"
+  password             = "testpassword"
+  final_snapshot_identifier  = "ops"
+}
