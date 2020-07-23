@@ -4,10 +4,33 @@ provider "aws" {
   region  = "us-east-2"
 }
 
-#this nis required to ssh into the machine from a remote client like putty
+#As the project grows up you need to group resources to have an overview of them
+#let use a Resource Group
+resource "aws_resourcegroups_group" "terraform-learn" {
+  name = "terraform-learn"
+  tags = {
+    Group = "TFL" #this must be equal to the one in the query but I do not know how to interpolate a query...
+  }
+
+  resource_query {
+    query = <<JSON
+    {
+      "ResourceTypeFilters": ["AWS::AllSupported"],
+      "TagFilters": [{
+        "Key": "Name",
+        "Values": ["TFL"]
+      }]
+    }
+    JSON
+  }
+}
+
+#this is required to ssh into the machine from a remote client like putty
 resource "aws_key_pair" "ssh-key" {
   key_name   = "ssh-key"
   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAsQtpu78GVjGAGPVCmJAJW3JtFquE8jHy3SYJLUjh/u2aAXQW/6TqYxa8DJyjt9RaJmWBAgek8vGW2F+XMcpWzRzKsH7RPHpIq8yEz7yYw2H956ZQt7H0Og3TPkirWOT3MakIKzSJgCK5GSup12SzphY7Jsrs5Csp5P053g5cwTyIXwgSrCbb5Deb5qGYXv5gFoOEqXgT9MtzXGHVOCiegeGcND044W2NZY5+22WDoaT9tpvGTxtntfIu0cNWJlIo1MEYOc0Rif1c0zPhQ8HoWqsGrjw1DunwYcaqZ8/qTJ/3wfXC9UIbQ4oXfVJ51Tx8Jv0dKfvxSeepan+4ZLVbXw== rsa-key-20200721"
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
 }
 
 #firewall rules to open only ssh inbound trafic and lock anything else
@@ -23,9 +46,10 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "allow_ssh"
-  }
+  tags = merge(
+    aws_resourcegroups_group.terraform-learn.tags,
+    { Name = "allow_ssh" }
+  )
 }
 
 #our VM with a given ssh key , protected by our firewall rules
@@ -35,6 +59,8 @@ resource "aws_instance" "pippo" {
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
   key_name               = aws_key_pair.ssh-key.key_name
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
 }
 
 #firewall rules to open postgres inbound traffic from outside
@@ -52,9 +78,10 @@ resource "aws_security_group" "allow_pg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "allow_pg"
-  }
+  tags = merge(
+    aws_resourcegroups_group.terraform-learn.tags,
+    { Name = "allow_pg" }
+  )
 }
 
 #add a managed postgres instance
@@ -73,4 +100,6 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids = [aws_security_group.allow_pg.id]
 
   final_snapshot_identifier = "ops"
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
 }
