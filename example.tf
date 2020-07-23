@@ -25,6 +25,8 @@ resource "aws_resourcegroups_group" "terraform-learn" {
   }
 }
 
+#----------------------------------- COMPUTE -----------------------------------
+
 #this is required to ssh into the machine from a remote client like putty
 resource "aws_key_pair" "ssh-key" {
   key_name   = "ssh-key"
@@ -54,14 +56,74 @@ resource "aws_security_group" "allow_ssh" {
 
 #our VM with a given ssh key , protected by our firewall rules
 resource "aws_instance" "pippo" {
+  monitoring    = true
   ami           = "ami-0a63f96e85105c6d3"
   instance_type = "t2.micro"
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
   key_name               = aws_key_pair.ssh-key.key_name
 
+  tags = merge(
+    aws_resourcegroups_group.terraform-learn.tags,
+    { Name = "pippo" }
+  )
+}
+
+##some metric alarms!
+
+resource "aws_cloudwatch_metric_alarm" "EC2-high-CPU" {
+  alarm_name                = "${aws_instance.pippo.tags["Name"]}-high-CPU"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "5" #number of contiguous periods. I find this useful: setting period to 60 secs this defines the minutes
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/EC2"
+  period                    = "60" #in seconds
+  statistic                 = "Average"
+  threshold                 = "75"
+  alarm_description         = "This metric monitors ec2 cpu utilization"
+  insufficient_data_actions = []
+
+  #this limits the monitoring to our instance
+  dimensions = {
+    InstanceId = aws_instance.pippo.id
+  }
+
   tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
 }
+
+# also set a notification policy!
+#not sure about this but seems that terraform can't send mails config...
+#I've found this snippet... config it as per your needs
+
+# resource "aws_sns_topic" "alarm" {
+#   name = "alarms-topic"
+#   delivery_policy = <<EOF
+# {
+#   "http": {
+#     "defaultHealthyRetryPolicy": {
+#       "minDelayTarget": 20,
+#       "maxDelayTarget": 20,
+#       "numRetries": 3,
+#       "numMaxDelayRetries": 0,
+#       "numNoDelayRetries": 0,
+#       "numMinDelayRetries": 0,
+#       "backoffFunction": "linear"
+#     },
+#     "disableSubscriptionOverrides": false,
+#     "defaultThrottlePolicy": {
+#       "maxReceivesPerSecond": 1
+#     }
+#   }
+# }
+# EOF
+
+#   provisioner "local-exec" {
+#     command = "aws sns subscribe --topic-arn ${self.arn} --protocol email --notification-endpoint ${var.alarms_email}"
+#   }
+# }
+
+
+#----------------------------------- MANAGED DB -----------------------------------
 
 #firewall rules to open postgres inbound traffic from outside
 #please note: you could add as many roule as you want into a sec group. here I've created a new one just 
@@ -100,6 +162,68 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids = [aws_security_group.allow_pg.id]
 
   final_snapshot_identifier = "ops"
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
+}
+
+##some metric alarms!
+
+resource "aws_cloudwatch_metric_alarm" "RDS-high-CPU" {
+  alarm_name                = "${aws_db_instance.postgres.identifier}-high-CPU"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "5" #number of contiguous periods. I find this useful: setting period to 60 secs this defines the minutes
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/RDS"
+  period                    = "60" #in seconds
+  statistic                 = "Average"
+  threshold                 = "75"
+  alarm_description         = "This metric monitors RDS cpu utilization"
+  insufficient_data_actions = []
+
+  #this limits the monitoring to our instance
+  dimensions = {
+    InstanceId = aws_db_instance.postgres.id
+  }
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
+}
+
+resource "aws_cloudwatch_metric_alarm" "RDS-connection-limit" {
+  alarm_name                = "${aws_db_instance.postgres.identifier}-connections-limit"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "5" #number of contiguous periods. I find this useful: setting period to 60 secs this defines the minutes
+  metric_name               = "DatabaseConnections"
+  namespace                 = "AWS/RDS"
+  period                    = "60" #in seconds
+  statistic                 = "Average"
+  threshold                 = "5" #this depends on your instance type. maybe by using a metric query you coloud iprove this
+  alarm_description         = "This metric monitors RDS connections"
+  insufficient_data_actions = []
+
+  #this limits the monitoring to our instance
+  dimensions = {
+    InstanceId = aws_db_instance.postgres.id
+  }
+
+  tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
+}
+
+resource "aws_cloudwatch_metric_alarm" "RDS-storage-limit" {
+  alarm_name                = "${aws_db_instance.postgres.identifier}-storage-limit"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "5" #number of contiguous periods. I find this useful: setting period to 60 secs this defines the minutes
+  metric_name               = "FreeStorageSpace"
+  namespace                 = "AWS/RDS"
+  period                    = "60" #in seconds
+  statistic                 = "Average"
+  threshold                 = "75"
+  alarm_description         = "This metric monitors RDS connections"
+  insufficient_data_actions = []
+
+  #this limits the monitoring to our instance
+  dimensions = {
+    InstanceId = aws_db_instance.postgres.id
+  }
 
   tags = merge(aws_resourcegroups_group.terraform-learn.tags, {})
 }
