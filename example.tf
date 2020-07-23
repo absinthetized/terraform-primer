@@ -30,23 +30,47 @@ resource "aws_security_group" "allow_ssh" {
 
 #our VM with a given ssh key , protected by our firewall rules
 resource "aws_instance" "pippo" {
-  ami           = "ami-08daaa3f87f350737"
+  ami           = "ami-0a63f96e85105c6d3"
   instance_type = "t3.micro"
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
-  key_name = aws_key_pair.ssh-key.key_name
+  key_name               = aws_key_pair.ssh-key.key_name
+}
+
+#firewall rules to open postgres inbound traffic from outside
+#please note: you could add as many roule as you want into a sec group. here I've created a new one just 
+#for test purpouses
+resource "aws_security_group" "allow_pg" {
+  name        = "allow_pg"
+  description = "Allow Postgres inbound traffic"
+
+  ingress {
+    description = "Postgres"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_pg"
+  }
 }
 
 #add a managed postgres instance
 resource "aws_db_instance" "postgres" {
-  identifier           = "appdb"
-  allocated_storage    = 5
-  storage_type         = "gp2"
-  engine               = "postgres"
-  engine_version       = "11.5"
-  instance_class       = "db.t3.micro"
-  name                 = "testdb"
-  username             = "testuser"
-  password             = "testpassword"
-  final_snapshot_identifier  = "ops"
+  identifier             = "appdb"
+  allocated_storage      = 5
+  storage_type           = "gp2"
+  engine                 = "postgres"
+  engine_version         = "11.5"
+  instance_class         = "db.t3.micro"
+  name                   = "testdb"
+  username               = "testuser"
+  password               = "testpassword"
+  maintenance_window     = "Mon:00:00-Mon:03:00"
+  publicly_accessible    = "true" #this is dangerous in prod unless you assign to a security group with specific innound IPs
+  vpc_security_group_ids = [aws_security_group.allow_pg.id]
+
+  final_snapshot_identifier = "ops"
 }
