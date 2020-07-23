@@ -1,3 +1,7 @@
+variable "prjTag" {
+    type = map(any)
+}
+
 #firewall rules to open postgres inbound traffic from outside
 #please note: you could add as many roule as you want into a sec group. here I've created a new one just 
 #for test purpouses
@@ -40,25 +44,13 @@ resource "aws_db_instance" "postgres" {
 }
 
 ##some metric alarms!
+module "cloudwatchCommon" {
+    source = "../alarms"
 
-resource "aws_cloudwatch_metric_alarm" "RDS-high-CPU" {
-  alarm_name                = "${aws_db_instance.postgres.identifier}-high-CPU"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "5" #number of contiguous periods. I find this useful: setting period to 60 secs this defines the minutes
-  metric_name               = "CPUUtilization"
-  namespace                 = "AWS/RDS"
-  period                    = "60" #in seconds
-  statistic                 = "Average"
-  threshold                 = "75"
-  alarm_description         = "This metric monitors RDS cpu utilization"
-  insufficient_data_actions = []
-
-  #this limits the monitoring to our instance
-  dimensions = {
-    InstanceId = aws_db_instance.postgres.id
-  }
-
-  tags = merge(var.prjTag, {})
+    prjTag = var.prjTag
+    alarmNamespace = "AWS/RDS"
+    alarmPrefix = aws_db_instance.postgres.identifier
+    alarmTarget = aws_db_instance.postgres.id
 }
 
 resource "aws_cloudwatch_metric_alarm" "RDS-connection-limit" {

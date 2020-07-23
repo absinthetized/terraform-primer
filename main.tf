@@ -28,13 +28,13 @@ resource "aws_resourcegroups_group" "terraform-learn" {
 #----------------------------------- COMPUTE -----------------------------------
 
 module "EC2" {
-  source = "./modules"
+  source = "./EC2"
   prjTag = aws_resourcegroups_group.terraform-learn.tags
 }
 
 #----------------------------------- MANAGED DB -----------------------------------
 
 module "RDS" {
-  source = "./modules"
+  source = "./RDS"
   prjTag = aws_resourcegroups_group.terraform-learn.tags
 }
